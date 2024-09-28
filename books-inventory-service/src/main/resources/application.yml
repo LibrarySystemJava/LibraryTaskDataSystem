@@ -1,0 +1,25 @@
+server:
+  port: 8001
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://admin:password@mongo:27017/books?authSource=books
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: library-management-group
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  flyway:
+    locations: classpath:/db/migration
+
+mongock:
+  change-logs-scan-package:
+    - "com.datasystem.booksinventoryservice.infrastructure.mongo_changelog"
+
+library:
+  topics:
+    insert-book: "insert-book-topic"
+    borrow-book: "borrow-book-topic"

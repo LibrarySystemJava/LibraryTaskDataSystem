@@ -1,0 +1,135 @@
+
+services:
+
+  books-borrowed-service:
+    container_name: books-borrowed-service
+    image: com.datasystem/books-borrowed-service:1.0.0
+    ports:
+      - "8002:8002"
+    environment:
+      SERVER_PORT: 8002
+      TZ: Europe/Warsaw
+    networks:
+      - postgres-network
+      - kafka-network
+    restart: unless-stopped
+
+  books-inventory-service:
+    container_name: books-inventory-service
+    image: com.datasystem/books-inventory-service:1.0.0
+    ports:
+      - "8001:8001"
+    environment:
+      SERVER_PORT: 8001
+      TZ: Europe/Warsaw
+    networks:
+      - mongo-network
+      - kafka-network
+    restart: unless-stopped
+
+
+  mongo:
+    container_name: mongo
+    image: mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=project
+    volumes:
+      - ./database/mongo/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - mongo-network
+    restart: unless-stopped
+
+  mongo-express:
+    container_name: mongo-express
+    image: mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+      - ME_CONFIG_MONGODB_AUTH_USERNAME=${MONGO_ROOT_USER}
+      - ME_CONFIG_MONGODB_AUTH_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - ME_CONFIG_BASICAUTH_USERNAME=${MONGOEXPRESS_LOGIN}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGOEXPRESS_PASSWORD}
+    depends_on:
+      - mongo
+    ports:
+      - "8081:8081"
+    networks:
+      - mongo-network
+    restart: unless-stopped
+
+  zookeeper:
+    container_name: zookeeper
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://kafka:9094
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:9094
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+
+  postgres:
+    container_name: postgres
+    image: "postgres:16"
+    environment:
+      POSTGRES_DB: library
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - postgres-network
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./database/postgres/servers.json:/pgadmin4/servers.json
+    depends_on:
+      - postgres
+    networks:
+      - postgres-network
+    restart: unless-stopped
+
+networks:
+  kafka-network:
+    driver: bridge
+  postgres-network:
+    driver: bridge
+  mongo-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+  postgres-data:
+  pgadmin-data:
